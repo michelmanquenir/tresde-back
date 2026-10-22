@@ -1,0 +1,21 @@
+# Base de datos PostgreSQL para desarrollo local.
+# Iniciar:  docker compose up -d
+# Detener:  docker compose down        (los datos se conservan en el volumen)
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tresde
+      POSTGRES_USER: tresde
+      POSTGRES_PASSWORD: tresde
+    ports:
+      - "5432:5432"
+    volumes:
+      - tresde-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tresde -d tresde"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  tresde-data:
