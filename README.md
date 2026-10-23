@@ -72,11 +72,13 @@ En el frontend publicado, define `VITE_API_URL` con la URL pública de este back
 
 ```
 src/main/java/.../back/
-  auth/       login, usuarios, tokens JWT
-  category/   categorías
-  product/    productos (API pública y de administración)
-  image/      fotos guardadas en la base de datos
-  config/     seguridad, CORS, propiedades
-  common/     manejo de errores y utilidades
+  config/       propiedades (app.*), CORS y creación del admin inicial
+  controller/   endpoints REST y manejo global de errores
+  dto/          objetos de entrada/salida de la API (records)
+  model/        entidades JPA: Product, Category, StoredImage, User
+  repository/   repositorios Spring Data JPA
+  security/     reglas de acceso, configuración JWT y emisión de tokens
+  service/      lógica de negocio: productos, imágenes, login, categorías
+  utils/        ApiException, slugs y URLs de imágenes
 src/main/resources/db/migration/   esquema y datos iniciales (Flyway)
 ```
