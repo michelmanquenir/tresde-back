@@ -101,7 +101,47 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$", hasSize(15)));
 		mvc.perform(get("/api/auth/me").header("Authorization", auth)).andExpect(status().isOk())
 				.andExpect(jsonPath("$.username", is("admin")))
-				.andExpect(jsonPath("$.name", is("Administrador")));
+				.andExpect(jsonPath("$.name", is("Administrador")))
+				.andExpect(jsonPath("$.role", is("ADMIN")));
+	}
+
+	@Test
+	void registroDeClientes() throws Exception {
+		String cliente = "{\"name\":\"Ana Pérez\",\"email\":\"Ana@Correo.com\",\"password\":\"secreta123\"}";
+
+		// Registro: crea la cuenta y devuelve la sesión iniciada
+		String body = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(cliente))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.user.username", is("ana@correo.com")))
+				.andExpect(jsonPath("$.user.role", is("CUSTOMER")))
+				.andReturn().getResponse().getContentAsString();
+
+		// Mismo correo (sin importar mayúsculas) -> 409
+		mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(cliente))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.message", is("Ya existe una cuenta con ese correo.")));
+
+		// Datos inválidos -> 400 con error por campo
+		mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"\",\"email\":\"no-es-correo\",\"password\":\"corta\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.name").exists())
+				.andExpect(jsonPath("$.errors.email").exists())
+				.andExpect(jsonPath("$.errors.password").exists());
+
+		// Login con el correo
+		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"ana@correo.com\",\"password\":\"secreta123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.user.name", is("Ana Pérez")));
+
+		// Un cliente no puede entrar al panel de administración
+		Matcher m = Pattern.compile("\"token\":\"([^\"]+)\"").matcher(body);
+		if (!m.find()) throw new AssertionError("Sin token: " + body);
+		String auth = "Bearer " + m.group(1);
+		mvc.perform(get("/api/auth/me").header("Authorization", auth)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.role", is("CUSTOMER")));
+		mvc.perform(get("/api/admin/products").header("Authorization", auth)).andExpect(status().isForbidden());
 	}
 
 	@Test
