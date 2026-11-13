@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -249,5 +250,12 @@ class ApiIntegrationTests {
 				.header("Origin", "https://sitio-malicioso.com")
 				.header("Access-Control-Request-Method", "GET"))
 				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void healthEsPublicoConGetYHead() throws Exception {
+		mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status", is("ok")));
+		// UptimeRobot y otros monitores usan HEAD
+		mvc.perform(head("/api/health")).andExpect(status().isOk());
 	}
 }

@@ -38,6 +38,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers("/error").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+						// Monitores externos (ej. UptimeRobot) suelen usar HEAD para mantener el servidor despierto
+						.requestMatchers(HttpMethod.HEAD, "/api/health").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/health", "/api/products/**", "/api/categories/**",
 								"/api/images/**").permitAll()
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
