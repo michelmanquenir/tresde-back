@@ -21,10 +21,11 @@ public record ImportProductRequest(
 		Boolean bestSeller,
 		Boolean hidden,
 		Double rating,
-		Double printHours) {
+		Double printHours,
+		ProductCost cost) {
 
 	public ProductRequest toProductRequest() {
 		return new ProductRequest(name, category, price, oldPrice, description, material, heightCm, printHours,
-				colors, images, isNew, bestSeller, hidden);
+				colors, images, isNew, bestSeller, hidden, cost);
 	}
 }

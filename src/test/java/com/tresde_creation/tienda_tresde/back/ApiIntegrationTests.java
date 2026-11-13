@@ -258,4 +258,55 @@ class ApiIntegrationTests {
 		// UptimeRobot y otros monitores usan HEAD
 		mvc.perform(head("/api/health")).andExpect(status().isOk());
 	}
+
+	@Test
+	void configuracionDeCostos() throws Exception {
+		mvc.perform(get("/api/admin/settings/costs")).andExpect(status().isUnauthorized());
+
+		String auth = token();
+		mvc.perform(get("/api/admin/settings/costs").header("Authorization", auth)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.machineHourCost", is(35.0)))
+				.andExpect(jsonPath("$.machineReservePercent", is(10.0)))
+				.andExpect(jsonPath("$.priceMultiplier", is(4.0)))
+				.andExpect(jsonPath("$.filamentPricePerKg.PLA", is(15000)));
+
+		mvc.perform(put("/api/admin/settings/costs").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"machineHourCost\":40,\"machineReservePercent\":12,\"priceMultiplier\":3.5,"
+						+ "\"filamentPricePerKg\":{\"PLA\":16000,\"PETG\":18000}}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.machineHourCost", is(40.0)))
+				.andExpect(jsonPath("$.filamentPricePerKg.PETG", is(18000)))
+				.andExpect(jsonPath("$.filamentPricePerKg.TPU", is(15000))); // no enviado: se conserva
+
+		mvc.perform(put("/api/admin/settings/costs").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"machineHourCost\":-1,\"machineReservePercent\":95,\"priceMultiplier\":0,\"filamentPricePerKg\":{}}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.machineHourCost").exists())
+				.andExpect(jsonPath("$.errors.machineReservePercent").exists())
+				.andExpect(jsonPath("$.errors.priceMultiplier").exists());
+	}
+
+	@Test
+	void costosDelProductoSoloEnElPanel() throws Exception {
+		String auth = token();
+		String json = productJson("Llavero Naruto", false, "[]").replace("\"hidden\":false}",
+				"\"hidden\":false,\"cost\":{\"grams\":8,\"batchHours\":11,\"batchPieces\":10,\"accessoriesCost\":30}}");
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.cost.grams", is(8.0)))
+				.andExpect(jsonPath("$.cost.batchPieces", is(10)));
+
+		mvc.perform(get("/api/admin/products/llavero-naruto").header("Authorization", auth))
+				.andExpect(jsonPath("$.cost.accessoriesCost", is(30)));
+		// La tienda no ve los costos
+		mvc.perform(get("/api/products/llavero-naruto")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.cost").doesNotExist());
+
+		// Validación de costos
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json.replace("\"batchPieces\":10", "\"batchPieces\":0")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors['cost.batchPieces']").exists());
+	}
 }

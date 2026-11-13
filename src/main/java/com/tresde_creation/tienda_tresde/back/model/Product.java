@@ -47,6 +47,18 @@ public class Product {
 
 	private Double rating;
 
+	// ── Costos (solo panel) ──
+	private Double grams;
+
+	@Column(name = "batch_hours")
+	private Double batchHours;
+
+	@Column(name = "batch_pieces")
+	private Integer batchPieces;
+
+	@Column(name = "accessories_cost")
+	private Integer accessoriesCost;
+
 	@Column(name = "is_new")
 	private boolean isNew;
 
@@ -119,6 +131,14 @@ public class Product {
 	public void setColors(List<String> colors) { this.colors.clear(); this.colors.addAll(colors); }
 	public List<String> getImages() { return images; }
 	public void setImages(List<String> images) { this.images.clear(); this.images.addAll(images); }
+	public Double getGrams() { return grams; }
+	public void setGrams(Double grams) { this.grams = grams; }
+	public Double getBatchHours() { return batchHours; }
+	public void setBatchHours(Double batchHours) { this.batchHours = batchHours; }
+	public Integer getBatchPieces() { return batchPieces; }
+	public void setBatchPieces(Integer batchPieces) { this.batchPieces = batchPieces; }
+	public Integer getAccessoriesCost() { return accessoriesCost; }
+	public void setAccessoriesCost(Integer accessoriesCost) { this.accessoriesCost = accessoriesCost; }
 	public Instant getCreatedAt() { return createdAt; }
 	public Instant getUpdatedAt() { return updatedAt; }
 }

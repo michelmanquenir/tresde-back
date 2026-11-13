@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.tresde_creation.tienda_tresde.back.dto.ImportProductRequest;
+import com.tresde_creation.tienda_tresde.back.dto.ProductCost;
 import com.tresde_creation.tienda_tresde.back.dto.ProductRequest;
 import com.tresde_creation.tienda_tresde.back.dto.ProductResponse;
 import com.tresde_creation.tienda_tresde.back.model.Product;
@@ -47,13 +48,13 @@ public class ProductService {
 				.filter(p -> q.isEmpty()
 						|| p.getName().toLowerCase().contains(q)
 						|| p.getDescription().toLowerCase().contains(q))
-				.map(this::toResponse)
+				.map(this::toPublicResponse)
 				.toList();
 	}
 
 	@Transactional(readOnly = true)
 	public ProductResponse getVisible(String id) {
-		return products.findByIdAndHiddenFalse(id).map(this::toResponse)
+		return products.findByIdAndHiddenFalse(id).map(this::toPublicResponse)
 				.orElseThrow(() -> ApiException.notFound("Producto no encontrado."));
 	}
 
@@ -169,6 +170,11 @@ public class ProductService {
 		p.setNew(Boolean.TRUE.equals(req.isNew()));
 		p.setBestSeller(Boolean.TRUE.equals(req.bestSeller()));
 		p.setHidden(Boolean.TRUE.equals(req.hidden()));
+		ProductCost cost = req.cost();
+		p.setGrams(cost == null ? null : cost.grams());
+		p.setBatchHours(cost == null ? null : cost.batchHours());
+		p.setBatchPieces(cost == null ? null : cost.batchPieces());
+		p.setAccessoriesCost(cost == null ? null : cost.accessoriesCost());
 	}
 
 	/** Borra las fotos subidas que dejaron de usarse (y que ningún otro producto usa). */
@@ -186,12 +192,22 @@ public class ProductService {
 		return id;
 	}
 
+	/** Para el panel: incluye los datos de costo. */
 	private ProductResponse toResponse(Product p) {
+		return toResponse(p, new ProductCost(p.getGrams(), p.getBatchHours(), p.getBatchPieces(), p.getAccessoriesCost()));
+	}
+
+	/** Para la tienda: sin datos de costo (el campo "cost" no aparece en el JSON). */
+	private ProductResponse toPublicResponse(Product p) {
+		return toResponse(p, null);
+	}
+
+	private ProductResponse toResponse(Product p, ProductCost cost) {
 		return new ProductResponse(
 				p.getId(), p.getName(), p.getCategory(), p.getPrice(), p.getOldPrice(), p.getDescription(),
 				p.getMaterial(), List.copyOf(p.getColors()),
 				p.getImages().stream().map(ImageUrls::absolute).toList(),
 				p.getHeightCm(), p.isNew(), p.isBestSeller(), p.isHidden(), p.getRating(), p.getPrintHours(),
-				p.getCreatedAt(), p.getUpdatedAt());
+				p.getCreatedAt(), p.getUpdatedAt(), cost);
 	}
 }

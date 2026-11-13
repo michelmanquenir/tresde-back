@@ -27,4 +27,5 @@ public record ProductResponse(
 		Double rating,
 		Double printHours,
 		Instant createdAt,
-		Instant updatedAt) {}
+		Instant updatedAt,
+		ProductCost cost) {} // cost solo se envía al panel
