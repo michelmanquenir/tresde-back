@@ -357,4 +357,57 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.token").exists())
 				.andExpect(jsonPath("$.user.role", is("ADMIN")));
 	}
+
+	@Test
+	void ventasDescuentanYDevuelvenStock() throws Exception {
+		String auth = token();
+		String json = productJson("Figura vendible", false, "[]").replace("\"hidden\":false}",
+				"\"hidden\":false,\"cost\":{\"grams\":10,\"batchHours\":2,\"batchPieces\":1,\"accessoriesCost\":0}}");
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json)).andExpect(status().isCreated());
+
+		mvc.perform(get("/api/admin/sales")).andExpect(status().isUnauthorized());
+
+		// Vende 2 de 5: precio actual por defecto y costo congelado (10 g × $15 + 2 h × $35 = $220)
+		String sale = mvc.perform(post("/api/admin/sales").header("Authorization", auth)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"figura-vendible\",\"quantity\":2,\"color\":\"#FF7A00\",\"customer\":\"Ana\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.unitPrice", is(25990)))
+				.andExpect(jsonPath("$.unitCost", is(220.0)))
+				.andExpect(jsonPath("$.reservePercent", is(10.0)))
+				.andExpect(jsonPath("$.productName", is("Figura vendible")))
+				.andReturn().getResponse().getContentAsString();
+		mvc.perform(get("/api/admin/products/figura-vendible").header("Authorization", auth))
+				.andExpect(jsonPath("$.stock", is(3)));
+
+		// No deja vender más que el stock, salvo que no se descuente
+		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"figura-vendible\",\"quantity\":4}"))
+				.andExpect(status().isConflict());
+		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"figura-vendible\",\"quantity\":4,\"discountStock\":false,\"unitPrice\":20000}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.unitPrice", is(20000)));
+
+		mvc.perform(get("/api/admin/sales").header("Authorization", auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(2)));
+		mvc.perform(get("/api/admin/sales?from=2000-01-01T00:00:00Z&to=2001-01-01T00:00:00Z").header("Authorization", auth))
+				.andExpect(jsonPath("$", hasSize(0)));
+
+		// Anular devuelve el stock
+		Matcher m = Pattern.compile("\"id\":([0-9]+)").matcher(sale);
+		if (!m.find()) throw new AssertionError(sale);
+		mvc.perform(delete("/api/admin/sales/" + m.group(1)).header("Authorization", auth))
+				.andExpect(status().isNoContent());
+		mvc.perform(get("/api/admin/products/figura-vendible").header("Authorization", auth))
+				.andExpect(jsonPath("$.stock", is(5)));
+
+		// Validación
+		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"figura-vendible\",\"quantity\":0}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.quantity").exists());
+	}
 }
