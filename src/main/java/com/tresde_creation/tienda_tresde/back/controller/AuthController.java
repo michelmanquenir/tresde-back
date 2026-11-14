@@ -41,6 +41,12 @@ public class AuthController {
 	}
 
 	/** Devuelve el usuario del token actual (sirve para validar la sesión desde el frontend). */
+	/** Renueva la sesión: requiere un token vigente. */
+	@PostMapping("/refresh")
+	public LoginResponse refresh(@AuthenticationPrincipal Jwt jwt) {
+		return authService.refresh(jwt);
+	}
+
 	@GetMapping("/me")
 	public UserInfoResponse me(@AuthenticationPrincipal Jwt jwt) {
 		return authService.currentUser(jwt);

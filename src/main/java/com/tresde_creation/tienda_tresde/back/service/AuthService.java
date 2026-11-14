@@ -59,6 +59,14 @@ public class AuthService {
 		return sessionFor(user);
 	}
 
+	/** Entrega un token nuevo (con la duración completa) a partir de uno vigente. */
+	@Transactional(readOnly = true)
+	public LoginResponse refresh(Jwt jwt) {
+		User user = users.findByUsernameIgnoreCase(jwt.getSubject())
+				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tu cuenta ya no existe."));
+		return sessionFor(user);
+	}
+
 	/** Datos del usuario a partir de un token ya validado. */
 	public UserInfoResponse currentUser(Jwt jwt) {
 		List<String> roles = jwt.getClaimAsStringList("roles");

@@ -339,4 +339,22 @@ class ApiIntegrationTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.stock", is("Indica el stock disponible.")));
 	}
+
+	@Test
+	void sesionDe30DiasYRenovacion() throws Exception {
+		String body = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"admin\",\"password\":\"admin\"}"))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+		Matcher m = Pattern.compile("\"expiresAt\":\"([^\"]+)\"").matcher(body);
+		if (!m.find()) throw new AssertionError("Sin expiresAt: " + body);
+		java.time.Duration left = java.time.Duration.between(java.time.Instant.now(), java.time.Instant.parse(m.group(1)));
+		if (left.toDays() < 29) throw new AssertionError("La sesión dura menos de 30 días: " + left);
+
+		mvc.perform(post("/api/auth/refresh")).andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/auth/refresh").header("Authorization", token()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.token").exists())
+				.andExpect(jsonPath("$.user.role", is("ADMIN")));
+	}
 }
