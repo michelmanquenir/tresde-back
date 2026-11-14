@@ -87,6 +87,13 @@ public class ProductService {
 	}
 
 	@Transactional
+	public ProductResponse setStock(String id, int stock) {
+		Product product = find(id);
+		product.setStock(stock);
+		return toResponse(product);
+	}
+
+	@Transactional
 	public ProductResponse setHidden(String id, boolean hidden) {
 		Product product = find(id);
 		product.setHidden(hidden);
@@ -170,6 +177,7 @@ public class ProductService {
 		p.setNew(Boolean.TRUE.equals(req.isNew()));
 		p.setBestSeller(Boolean.TRUE.equals(req.bestSeller()));
 		p.setHidden(Boolean.TRUE.equals(req.hidden()));
+		p.setStock(req.stock());
 		ProductCost cost = req.cost();
 		p.setGrams(cost == null ? null : cost.grams());
 		p.setBatchHours(cost == null ? null : cost.batchHours());
@@ -207,7 +215,7 @@ public class ProductService {
 				p.getId(), p.getName(), p.getCategory(), p.getPrice(), p.getOldPrice(), p.getDescription(),
 				p.getMaterial(), List.copyOf(p.getColors()),
 				p.getImages().stream().map(ImageUrls::absolute).toList(),
-				p.getHeightCm(), p.isNew(), p.isBestSeller(), p.isHidden(), p.getRating(), p.getPrintHours(),
+				p.getHeightCm(), p.isNew(), p.isBestSeller(), p.isHidden(), p.getRating(), p.getPrintHours(), p.getStock(),
 				p.getCreatedAt(), p.getUpdatedAt(), cost);
 	}
 }

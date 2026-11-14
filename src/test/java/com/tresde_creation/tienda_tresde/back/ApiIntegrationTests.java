@@ -59,7 +59,7 @@ class ApiIntegrationTests {
 		return """
 				{"name":"%s","category":"figuras","price":25990,"description":"Figura de prueba",
 				 "material":"Resina","heightCm":15,"colors":["#FF7A00","#2b2b2b"],"images":%s,
-				 "isNew":true,"bestSeller":false,"hidden":%s}
+				 "isNew":true,"bestSeller":false,"stock":5,"hidden":%s}
 				""".formatted(name, imagesJson, hidden);
 	}
 
@@ -308,5 +308,35 @@ class ApiIntegrationTests {
 				.content(json.replace("\"batchPieces\":10", "\"batchPieces\":0")))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors['cost.batchPieces']").exists());
+	}
+
+	@Test
+	void stockDisponible() throws Exception {
+		String auth = token();
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Figura con stock", false, "[]")))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.stock", is(5)));
+
+		// La tienda ve el stock
+		mvc.perform(get("/api/products/figura-con-stock")).andExpect(jsonPath("$.stock", is(5)));
+
+		// Cambio rápido desde la lista del panel
+		mvc.perform(patch("/api/admin/products/figura-con-stock/stock").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"stock\":2}")).andExpect(status().isUnauthorized());
+		mvc.perform(patch("/api/admin/products/figura-con-stock/stock").header("Authorization", auth)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"stock\":2}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stock", is(2)));
+		mvc.perform(patch("/api/admin/products/figura-con-stock/stock").header("Authorization", auth)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"stock\":-1}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.stock", is("El stock no puede ser negativo.")));
+
+		// Es obligatorio al crear
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Sin stock", false, "[]").replace("\"stock\":5,", "")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.stock", is("Indica el stock disponible.")));
 	}
 }

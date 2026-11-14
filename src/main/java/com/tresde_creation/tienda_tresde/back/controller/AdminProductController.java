@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.tresde_creation.tienda_tresde.back.dto.ImportProductRequest;
 import com.tresde_creation.tienda_tresde.back.dto.ProductRequest;
 import com.tresde_creation.tienda_tresde.back.dto.ProductResponse;
+import com.tresde_creation.tienda_tresde.back.dto.StockRequest;
 import com.tresde_creation.tienda_tresde.back.dto.VisibilityRequest;
 import com.tresde_creation.tienda_tresde.back.service.ProductService;
 
@@ -57,6 +58,11 @@ public class AdminProductController {
 	@PatchMapping("/{id}/visibility")
 	public ProductResponse setVisibility(@PathVariable String id, @Valid @RequestBody VisibilityRequest request) {
 		return productService.setHidden(id, request.hidden());
+	}
+
+	@PatchMapping("/{id}/stock")
+	public ProductResponse setStock(@PathVariable String id, @Valid @RequestBody StockRequest request) {
+		return productService.setStock(id, request.stock());
 	}
 
 	@DeleteMapping("/{id}")

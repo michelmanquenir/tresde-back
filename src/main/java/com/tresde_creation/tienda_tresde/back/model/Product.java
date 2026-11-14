@@ -47,6 +47,8 @@ public class Product {
 
 	private Double rating;
 
+	private int stock;
+
 	// ── Costos (solo panel) ──
 	private Double grams;
 
@@ -119,6 +121,8 @@ public class Product {
 	public void setHeightCm(Double heightCm) { this.heightCm = heightCm; }
 	public Double getPrintHours() { return printHours; }
 	public void setPrintHours(Double printHours) { this.printHours = printHours; }
+	public int getStock() { return stock; }
+	public void setStock(int stock) { this.stock = stock; }
 	public Double getRating() { return rating; }
 	public void setRating(Double rating) { this.rating = rating; }
 	public boolean isNew() { return isNew; }

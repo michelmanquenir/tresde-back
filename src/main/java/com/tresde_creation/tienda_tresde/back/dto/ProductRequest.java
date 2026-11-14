@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -56,5 +57,10 @@ public record ProductRequest(
 		@JsonProperty("isNew") Boolean isNew,
 		Boolean bestSeller,
 		Boolean hidden,
+
+		@NotNull(message = "Indica el stock disponible.")
+		@PositiveOrZero(message = "El stock no puede ser negativo.")
+		@Max(value = 100000, message = "El stock máximo es 100000.")
+		Integer stock,
 
 		@Valid ProductCost cost) {}

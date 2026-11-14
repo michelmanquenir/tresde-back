@@ -26,6 +26,7 @@ public record ProductResponse(
 		boolean hidden,
 		Double rating,
 		Double printHours,
+		int stock,
 		Instant createdAt,
 		Instant updatedAt,
 		ProductCost cost) {} // cost solo se envía al panel
