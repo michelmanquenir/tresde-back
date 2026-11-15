@@ -45,10 +45,10 @@ public class SaleService {
 	public SaleResponse create(SaleRequest req) {
 		Product product = products.findById(req.productId())
 				.orElseThrow(() -> ApiException.notFound("Producto no encontrado."));
-		boolean discount = !Boolean.FALSE.equals(req.discountStock());
-		if (discount && req.quantity() > product.getStock()) {
+		// Toda venta descuenta del stock: no se puede vender más de lo disponible
+		if (req.quantity() > product.getStock()) {
 			throw new ApiException(HttpStatus.CONFLICT, product.getStock() == 0
-					? "\"" + product.getName() + "\" no tiene stock. Desmarca \"Descontar del stock\" si lo imprimiste a pedido."
+					? "\"" + product.getName() + "\" no tiene stock. Si imprimiste más unidades, súmalas al stock primero."
 					: "Solo quedan " + product.getStock() + " unidades de \"" + product.getName() + "\".");
 		}
 		if (req.soldAt() != null && req.soldAt().isAfter(Instant.now().plusSeconds(24 * 3600))) {
@@ -65,12 +65,12 @@ public class SaleService {
 		s.setUnitPrice(req.unitPrice() != null ? req.unitPrice() : product.getPrice());
 		s.setUnitCost(settings == null ? null : unitCost(product, settings));
 		s.setReservePercent(settings == null ? 0 : settings.getMachineReservePercent());
-		s.setStockDiscounted(discount);
+		s.setStockDiscounted(true);
 		s.setChannel(blankToNull(req.channel()));
 		s.setCustomer(blankToNull(req.customer()));
 		s.setNote(blankToNull(req.note()));
 		s.setSoldAt(req.soldAt());
-		if (discount) product.setStock(product.getStock() - req.quantity());
+		product.setStock(product.getStock() - req.quantity());
 		return toResponse(sales.save(s));
 	}
 

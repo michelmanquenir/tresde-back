@@ -381,14 +381,16 @@ class ApiIntegrationTests {
 		mvc.perform(get("/api/admin/products/figura-vendible").header("Authorization", auth))
 				.andExpect(jsonPath("$.stock", is(3)));
 
-		// No deja vender más que el stock, salvo que no se descuente
+		// No deja vender más que el stock
 		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"productId\":\"figura-vendible\",\"quantity\":4}"))
 				.andExpect(status().isConflict());
 		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"productId\":\"figura-vendible\",\"quantity\":4,\"discountStock\":false,\"unitPrice\":20000}"))
+				.content("{\"productId\":\"figura-vendible\",\"quantity\":3,\"unitPrice\":20000}"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.unitPrice", is(20000)));
+		mvc.perform(get("/api/admin/products/figura-vendible").header("Authorization", auth))
+				.andExpect(jsonPath("$.stock", is(0)));
 
 		mvc.perform(get("/api/admin/sales").header("Authorization", auth))
 				.andExpect(status().isOk())
@@ -402,7 +404,7 @@ class ApiIntegrationTests {
 		mvc.perform(delete("/api/admin/sales/" + m.group(1)).header("Authorization", auth))
 				.andExpect(status().isNoContent());
 		mvc.perform(get("/api/admin/products/figura-vendible").header("Authorization", auth))
-				.andExpect(jsonPath("$.stock", is(5)));
+				.andExpect(jsonPath("$.stock", is(2)));
 
 		// Validación
 		mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)

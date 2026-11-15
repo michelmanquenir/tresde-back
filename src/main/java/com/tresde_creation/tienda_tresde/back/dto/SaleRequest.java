@@ -26,8 +26,6 @@ public record SaleRequest(
 		@Positive(message = "El precio debe ser mayor a 0.")
 		Integer unitPrice,
 
-		/** true (por defecto): descuenta las unidades del stock. */
-		Boolean discountStock,
 
 		@Size(max = 30, message = "Máximo 30 caracteres.")
 		String channel,
