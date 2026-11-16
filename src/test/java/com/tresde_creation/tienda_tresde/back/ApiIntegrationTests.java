@@ -106,43 +106,77 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.role", is("ADMIN")));
 	}
 
-	@Test
-	void registroDeClientes() throws Exception {
-		String cliente = "{\"name\":\"Ana Pérez\",\"email\":\"Ana@Correo.com\",\"password\":\"secreta123\"}";
-
-		// Registro: crea la cuenta y devuelve la sesión iniciada
-		String body = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(cliente))
-				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.user.username", is("ana@correo.com")))
-				.andExpect(jsonPath("$.user.role", is("CUSTOMER")))
-				.andReturn().getResponse().getContentAsString();
-
-		// Mismo correo (sin importar mayúsculas) -> 409
-		mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(cliente))
-				.andExpect(status().isConflict())
-				.andExpect(jsonPath("$.message", is("Ya existe una cuenta con ese correo.")));
-
-		// Datos inválidos -> 400 con error por campo
-		mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"name\":\"\",\"email\":\"no-es-correo\",\"password\":\"corta\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.errors.name").exists())
-				.andExpect(jsonPath("$.errors.email").exists())
-				.andExpect(jsonPath("$.errors.password").exists());
-
-		// Login con el correo
-		mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"ana@correo.com\",\"password\":\"secreta123\"}"))
+	private String loginAs(String username, String password) throws Exception {
+		String body = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"%s\",\"password\":\"%s\"}".formatted(username, password)))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.user.name", is("Ana Pérez")));
-
-		// Un cliente no puede entrar al panel de administración
+				.andReturn().getResponse().getContentAsString();
 		Matcher m = Pattern.compile("\"token\":\"([^\"]+)\"").matcher(body);
 		if (!m.find()) throw new AssertionError("Sin token: " + body);
-		String auth = "Bearer " + m.group(1);
-		mvc.perform(get("/api/auth/me").header("Authorization", auth)).andExpect(status().isOk())
-				.andExpect(jsonPath("$.role", is("CUSTOMER")));
-		mvc.perform(get("/api/admin/products").header("Authorization", auth)).andExpect(status().isForbidden());
+		return "Bearer " + m.group(1);
+	}
+
+	@Test
+	void usuariosDelPanel() throws Exception {
+		// Ya no hay registro público
+		mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Ana\",\"email\":\"ana@correo.com\",\"password\":\"secreta123\"}"))
+				.andExpect(status().isUnauthorized());
+
+		String admin = token();
+		String trabajador = "{\"name\":\"Pedro\",\"username\":\" Pedro \",\"password\":\"secreta123\",\"role\":\"STAFF\"}";
+		String body = mvc.perform(post("/api/admin/users").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON).content(trabajador))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.username", is("pedro")))
+				.andExpect(jsonPath("$.role", is("STAFF")))
+				.andReturn().getResponse().getContentAsString();
+		String id = body.replaceAll(".*\"id\":([0-9]+).*", "$1");
+
+		// Usuario repetido y contraseña corta -> 400 con error en el campo
+		mvc.perform(post("/api/admin/users").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON).content(trabajador))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.username").exists());
+		mvc.perform(post("/api/admin/users").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Luis\",\"username\":\"luis\",\"password\":\"corta\",\"role\":\"STAFF\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.password").exists());
+
+		mvc.perform(get("/api/admin/users").header("Authorization", admin)).andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(2)))
+				.andExpect(jsonPath("$[*].username", hasItem("pedro")));
+
+		// El trabajador usa el panel, pero no ve usuarios ni cambia la configuración
+		String staff = loginAs("pedro", "secreta123");
+		mvc.perform(get("/api/admin/products").header("Authorization", staff)).andExpect(status().isOk());
+		mvc.perform(get("/api/admin/settings/costs").header("Authorization", staff)).andExpect(status().isOk());
+		mvc.perform(put("/api/admin/settings/costs").header("Authorization", staff)
+				.contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/users").header("Authorization", staff)).andExpect(status().isForbidden());
+
+		// Cambiar la contraseña cierra sus sesiones abiertas
+		Thread.sleep(1100);
+		mvc.perform(put("/api/admin/users/" + id).header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Pedro Soto\",\"password\":\"otraClave99\",\"role\":\"STAFF\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name", is("Pedro Soto")));
+		mvc.perform(get("/api/admin/products").header("Authorization", staff)).andExpect(status().isUnauthorized());
+		staff = loginAs("pedro", "otraClave99");
+		mvc.perform(get("/api/auth/me").header("Authorization", staff)).andExpect(jsonPath("$.role", is("STAFF")));
+
+		// El administrador no puede quitarse su rol ni eliminarse
+		String adminId = mvc.perform(get("/api/admin/users").header("Authorization", admin))
+				.andReturn().getResponse().getContentAsString().replaceAll("^\\[\\{\"id\":([0-9]+).*", "$1");
+		mvc.perform(put("/api/admin/users/" + adminId).header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Administrador\",\"role\":\"STAFF\"}"))
+				.andExpect(status().isConflict());
+		mvc.perform(delete("/api/admin/users/" + adminId).header("Authorization", admin)).andExpect(status().isConflict());
+
+		// Al eliminarlo, su token deja de servir de inmediato
+		mvc.perform(delete("/api/admin/users/" + id).header("Authorization", admin)).andExpect(status().isNoContent());
+		mvc.perform(get("/api/admin/products").header("Authorization", staff)).andExpect(status().isUnauthorized());
 	}
 
 	@Test

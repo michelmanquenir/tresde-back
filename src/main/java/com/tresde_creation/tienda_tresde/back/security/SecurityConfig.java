@@ -13,13 +13,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import jakarta.servlet.http.HttpServletResponse;
 
-/** Reglas de acceso de la API: qué rutas son públicas y cuáles requieren rol ADMIN. */
+/** Reglas de acceso de la API: qué rutas son públicas y cuáles requieren el panel (ADMIN o STAFF). */
 @Configuration
 public class SecurityConfig {
 
@@ -29,7 +27,7 @@ public class SecurityConfig {
 			"{\"message\":\"No tienes permisos para esta acción.\",\"errors\":{}}";
 
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain securityFilterChain(HttpSecurity http, UserAuthenticationConverter userConverter) throws Exception {
 		http
 				.csrf(csrf -> csrf.disable()) // API sin cookies: el token va en el header Authorization
 				.cors(Customizer.withDefaults()) // ver config/CorsConfig
@@ -37,15 +35,18 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers("/error").permitAll()
-						.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
 						// Monitores externos (ej. UptimeRobot) suelen usar HEAD para mantener el servidor despierto
 						.requestMatchers(HttpMethod.HEAD, "/api/health").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/health", "/api/products/**", "/api/categories/**",
 								"/api/images/**").permitAll()
-						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						// Trabajadores (STAFF): todo el panel menos usuarios y cambiar la configuración de costos
+						.requestMatchers("/api/admin/users/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.PUT, "/api/admin/settings/**").hasRole("ADMIN")
+						.requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth -> oauth
-						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(userConverter))
 						.authenticationEntryPoint((req, res, ex) -> writeJson(res, HttpStatus.UNAUTHORIZED, UNAUTHORIZED_JSON))
 						.accessDeniedHandler((req, res, ex) -> writeJson(res, HttpStatus.FORBIDDEN, FORBIDDEN_JSON)))
 				.exceptionHandling(ex -> ex
@@ -57,16 +58,6 @@ public class SecurityConfig {
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
-	}
-
-	/** Lee los roles del claim "roles" del token (ej. ["ADMIN"] -> ROLE_ADMIN). */
-	private JwtAuthenticationConverter jwtAuthenticationConverter() {
-		JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-		authorities.setAuthoritiesClaimName("roles");
-		authorities.setAuthorityPrefix("ROLE_");
-		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-		converter.setJwtGrantedAuthoritiesConverter(authorities);
-		return converter;
 	}
 
 	private static void writeJson(HttpServletResponse res, HttpStatus status, String body) throws IOException {

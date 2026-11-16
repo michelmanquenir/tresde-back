@@ -1,8 +1,5 @@
 package com.tresde_creation.tienda_tresde.back.service;
 
-import java.util.List;
-
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -11,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.tresde_creation.tienda_tresde.back.dto.LoginRequest;
 import com.tresde_creation.tienda_tresde.back.dto.LoginResponse;
-import com.tresde_creation.tienda_tresde.back.dto.RegisterRequest;
 import com.tresde_creation.tienda_tresde.back.dto.UserInfoResponse;
 import com.tresde_creation.tienda_tresde.back.model.User;
 import com.tresde_creation.tienda_tresde.back.repository.UserRepository;
@@ -20,10 +16,6 @@ import com.tresde_creation.tienda_tresde.back.utils.ApiException;
 
 @Service
 public class AuthService {
-
-	public static final String ROLE_CUSTOMER = "CUSTOMER";
-
-	private static final String EMAIL_TAKEN = "Ya existe una cuenta con ese correo.";
 
 	private final UserRepository users;
 	private final PasswordEncoder encoder;
@@ -43,22 +35,6 @@ public class AuthService {
 		return sessionFor(user);
 	}
 
-	/** Crea una cuenta de cliente (el correo es su usuario) y deja la sesión iniciada. */
-	@Transactional
-	public LoginResponse register(RegisterRequest request) {
-		String email = request.email().trim().toLowerCase();
-		if (users.existsByUsernameIgnoreCase(email)) throw new ApiException(HttpStatus.CONFLICT, EMAIL_TAKEN);
-		User user;
-		try {
-			user = users.saveAndFlush(
-					new User(email, encoder.encode(request.password()), request.name().trim(), ROLE_CUSTOMER));
-		} catch (DataIntegrityViolationException e) {
-			// Dos registros simultáneos con el mismo correo
-			throw new ApiException(HttpStatus.CONFLICT, EMAIL_TAKEN);
-		}
-		return sessionFor(user);
-	}
-
 	/** Entrega un token nuevo (con la duración completa) a partir de uno vigente. */
 	@Transactional(readOnly = true)
 	public LoginResponse refresh(Jwt jwt) {
@@ -67,11 +43,12 @@ public class AuthService {
 		return sessionFor(user);
 	}
 
-	/** Datos del usuario a partir de un token ya validado. */
+	/** Datos actuales del usuario del token (el rol sale de la base: si el administrador lo cambió, se ve al instante). */
+	@Transactional(readOnly = true)
 	public UserInfoResponse currentUser(Jwt jwt) {
-		List<String> roles = jwt.getClaimAsStringList("roles");
-		String role = roles == null || roles.isEmpty() ? null : roles.get(0);
-		return new UserInfoResponse(jwt.getSubject(), jwt.getClaimAsString("name"), role);
+		User user = users.findByUsernameIgnoreCase(jwt.getSubject())
+				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tu cuenta ya no existe."));
+		return new UserInfoResponse(user.getUsername(), user.getName(), user.getRole());
 	}
 
 	private LoginResponse sessionFor(User user) {
