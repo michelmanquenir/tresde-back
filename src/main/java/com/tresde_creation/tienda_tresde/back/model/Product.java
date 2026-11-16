@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -58,8 +60,10 @@ public class Product {
 	@Column(name = "batch_pieces")
 	private Integer batchPieces;
 
-	@Column(name = "accessories_cost")
-	private Integer accessoriesCost;
+	@ElementCollection
+	@CollectionTable(name = "product_accessories", joinColumns = @JoinColumn(name = "product_id"))
+	@BatchSize(size = 100)
+	private List<ProductAccessory> accessories = new ArrayList<>();
 
 	@Column(name = "is_new")
 	private boolean isNew;
@@ -141,8 +145,8 @@ public class Product {
 	public void setBatchHours(Double batchHours) { this.batchHours = batchHours; }
 	public Integer getBatchPieces() { return batchPieces; }
 	public void setBatchPieces(Integer batchPieces) { this.batchPieces = batchPieces; }
-	public Integer getAccessoriesCost() { return accessoriesCost; }
-	public void setAccessoriesCost(Integer accessoriesCost) { this.accessoriesCost = accessoriesCost; }
+	public List<ProductAccessory> getAccessories() { return accessories; }
+	public void setAccessories(List<ProductAccessory> list) { this.accessories.clear(); this.accessories.addAll(list); }
 	public Instant getCreatedAt() { return createdAt; }
 	public Instant getUpdatedAt() { return updatedAt; }
 }

@@ -27,11 +27,14 @@ public class SaleService {
 	private final SaleRepository sales;
 	private final ProductRepository products;
 	private final CostSettingsRepository costSettings;
+	private final AccessoryService accessoryService;
 
-	public SaleService(SaleRepository sales, ProductRepository products, CostSettingsRepository costSettings) {
+	public SaleService(SaleRepository sales, ProductRepository products, CostSettingsRepository costSettings,
+			AccessoryService accessoryService) {
 		this.sales = sales;
 		this.products = products;
 		this.costSettings = costSettings;
+		this.accessoryService = accessoryService;
 	}
 
 	@Transactional(readOnly = true)
@@ -63,7 +66,7 @@ public class SaleService {
 		s.setColor(blankToNull(req.color()) == null ? null : req.color().toLowerCase());
 		s.setQuantity(req.quantity());
 		s.setUnitPrice(req.unitPrice() != null ? req.unitPrice() : product.getPrice());
-		s.setUnitCost(settings == null ? null : unitCost(product, settings));
+		s.setUnitCost(settings == null ? null : unitCost(product, settings, accessoryService::costs));
 		s.setReservePercent(settings == null ? 0 : settings.getMachineReservePercent());
 		s.setStockDiscounted(true);
 		s.setChannel(blankToNull(req.channel()));
@@ -85,10 +88,11 @@ public class SaleService {
 	}
 
 	/** Mismo cálculo que el panel (utils/pricing.ts). null si el producto no tiene datos de costo. */
-	static Double unitCost(Product p, CostSettings s) {
+	static Double unitCost(Product p, CostSettings s, java.util.function.Supplier<java.util.Map<Long, Integer>> accessoryCosts) {
 		double grams = p.getGrams() == null ? 0 : p.getGrams();
 		double hours = p.getBatchHours() == null ? 0 : p.getBatchHours();
-		int accessories = p.getAccessoriesCost() == null ? 0 : p.getAccessoriesCost();
+		Integer acc = AccessoryService.costOf(p, accessoryCosts.get());
+		int accessories = acc == null ? 0 : acc;
 		if (grams == 0 && hours == 0 && accessories == 0) return null;
 		int pieces = Math.max(1, p.getBatchPieces() == null ? 1 : p.getBatchPieces());
 		double filament = grams * s.getFilamentPrice(p.getMaterial()) / 1000.0;

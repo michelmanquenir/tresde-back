@@ -2,7 +2,9 @@ package com.tresde_creation.tienda_tresde.back.service;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -12,7 +14,10 @@ import com.tresde_creation.tienda_tresde.back.dto.ImportProductRequest;
 import com.tresde_creation.tienda_tresde.back.dto.ProductCost;
 import com.tresde_creation.tienda_tresde.back.dto.ProductRequest;
 import com.tresde_creation.tienda_tresde.back.dto.ProductResponse;
+import com.tresde_creation.tienda_tresde.back.dto.AccessoryUse;
 import com.tresde_creation.tienda_tresde.back.model.Product;
+import com.tresde_creation.tienda_tresde.back.model.ProductAccessory;
+import com.tresde_creation.tienda_tresde.back.repository.AccessoryRepository;
 import com.tresde_creation.tienda_tresde.back.repository.CategoryRepository;
 import com.tresde_creation.tienda_tresde.back.repository.ProductRepository;
 import com.tresde_creation.tienda_tresde.back.utils.ApiException;
@@ -29,13 +34,15 @@ public class ProductService {
 	private final CategoryRepository categories;
 	private final ImageService images;
 	private final Validator validator;
+	private final AccessoryRepository accessoryRepo;
 
 	public ProductService(ProductRepository products, CategoryRepository categories, ImageService images,
-			Validator validator) {
+			Validator validator, AccessoryRepository accessoryRepo) {
 		this.products = products;
 		this.categories = categories;
 		this.images = images;
 		this.validator = validator;
+		this.accessoryRepo = accessoryRepo;
 	}
 
 	// ── Lectura ──
@@ -60,7 +67,8 @@ public class ProductService {
 
 	@Transactional(readOnly = true)
 	public List<ProductResponse> listAll() {
-		return products.findAllNewestFirst().stream().map(this::toResponse).toList();
+		Map<Long, Integer> costs = accessoryCosts();
+		return products.findAllNewestFirst().stream().map(p -> toResponse(p, costs)).toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -182,7 +190,7 @@ public class ProductService {
 		p.setGrams(cost == null ? null : cost.grams());
 		p.setBatchHours(cost == null ? null : cost.batchHours());
 		p.setBatchPieces(cost == null ? null : cost.batchPieces());
-		p.setAccessoriesCost(cost == null ? null : cost.accessoriesCost());
+		p.setAccessories(accessoriesOf(cost));
 	}
 
 	/** Borra las fotos subidas que dejaron de usarse (y que ningún otro producto usa). */
@@ -202,12 +210,19 @@ public class ProductService {
 
 	/** Para el panel: incluye los datos de costo. */
 	private ProductResponse toResponse(Product p) {
-		return toResponse(p, new ProductCost(p.getGrams(), p.getBatchHours(), p.getBatchPieces(), p.getAccessoriesCost()));
+		return toResponse(p, accessoryCosts());
+	}
+
+	private ProductResponse toResponse(Product p, Map<Long, Integer> accessoryCosts) {
+		List<AccessoryUse> uses = p.getAccessories().stream()
+				.map(a -> new AccessoryUse(a.getAccessoryId(), a.getQuantity())).toList();
+		return toResponse(p, new ProductCost(p.getGrams(), p.getBatchHours(), p.getBatchPieces(), uses,
+				AccessoryService.costOf(p, accessoryCosts)));
 	}
 
 	/** Para la tienda: sin datos de costo (el campo "cost" no aparece en el JSON). */
 	private ProductResponse toPublicResponse(Product p) {
-		return toResponse(p, null);
+		return toResponse(p, (ProductCost) null);
 	}
 
 	private ProductResponse toResponse(Product p, ProductCost cost) {
@@ -217,5 +232,24 @@ public class ProductService {
 				p.getImages().stream().map(ImageUrls::absolute).toList(),
 				p.getHeightCm(), p.isNew(), p.isBestSeller(), p.isHidden(), p.getRating(), p.getPrintHours(), p.getStock(),
 				p.getCreatedAt(), p.getUpdatedAt(), cost);
+	}
+
+	/** Accesorios del formulario: valida que existan y junta los repetidos sumando la cantidad. */
+	private List<ProductAccessory> accessoriesOf(ProductCost cost) {
+		if (cost == null || cost.accessories() == null) return List.of();
+		Map<Long, Integer> merged = new LinkedHashMap<>();
+		for (AccessoryUse use : cost.accessories()) {
+			if (!accessoryRepo.existsById(use.accessoryId())) {
+				throw ApiException.badRequest("El accesorio #" + use.accessoryId() + " no existe.");
+			}
+			merged.merge(use.accessoryId(), use.quantity(), Integer::sum);
+		}
+		return merged.entrySet().stream().map(e -> new ProductAccessory(e.getKey(), e.getValue())).toList();
+	}
+
+	private Map<Long, Integer> accessoryCosts() {
+		Map<Long, Integer> map = new java.util.HashMap<>();
+		accessoryRepo.findAll().forEach(a -> map.put(a.getId(), a.getCost()));
+		return map;
 	}
 }

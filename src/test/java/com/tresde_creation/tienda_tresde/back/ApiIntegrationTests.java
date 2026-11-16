@@ -289,8 +289,9 @@ class ApiIntegrationTests {
 	@Test
 	void costosDelProductoSoloEnElPanel() throws Exception {
 		String auth = token();
+		long argolla = createAccessory(auth, "Argolla test", 30);
 		String json = productJson("Llavero Naruto", false, "[]").replace("\"hidden\":false}",
-				"\"hidden\":false,\"cost\":{\"grams\":8,\"batchHours\":11,\"batchPieces\":10,\"accessoriesCost\":30}}");
+				"\"hidden\":false,\"cost\":{\"grams\":8,\"batchHours\":11,\"batchPieces\":10,\"accessories\":[{\"accessoryId\":" + argolla + ",\"quantity\":2}]}}");
 		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
 				.content(json))
 				.andExpect(status().isCreated())
@@ -298,7 +299,8 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.cost.batchPieces", is(10)));
 
 		mvc.perform(get("/api/admin/products/llavero-naruto").header("Authorization", auth))
-				.andExpect(jsonPath("$.cost.accessoriesCost", is(30)));
+				.andExpect(jsonPath("$.cost.accessoriesCost", is(60)))
+				.andExpect(jsonPath("$.cost.accessories[0].quantity", is(2)));
 		// La tienda no ve los costos
 		mvc.perform(get("/api/products/llavero-naruto")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.cost").doesNotExist());
@@ -362,7 +364,7 @@ class ApiIntegrationTests {
 	void ventasDescuentanYDevuelvenStock() throws Exception {
 		String auth = token();
 		String json = productJson("Figura vendible", false, "[]").replace("\"hidden\":false}",
-				"\"hidden\":false,\"cost\":{\"grams\":10,\"batchHours\":2,\"batchPieces\":1,\"accessoriesCost\":0}}");
+				"\"hidden\":false,\"cost\":{\"grams\":10,\"batchHours\":2,\"batchPieces\":1}}");
 		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
 				.content(json)).andExpect(status().isCreated());
 
@@ -411,5 +413,57 @@ class ApiIntegrationTests {
 				.content("{\"productId\":\"figura-vendible\",\"quantity\":0}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.quantity").exists());
+	}
+
+	private long createAccessory(String auth, String name, int cost) throws Exception {
+		String body = mvc.perform(post("/api/admin/accessories").header("Authorization", auth)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"" + name + "\",\"cost\":" + cost + "}"))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		Matcher m = Pattern.compile("\"id\":([0-9]+)").matcher(body);
+		if (!m.find()) throw new AssertionError(body);
+		return Long.parseLong(m.group(1));
+	}
+
+	@Test
+	void catalogoDeAccesorios() throws Exception {
+		String auth = token();
+		mvc.perform(get("/api/admin/accessories")).andExpect(status().isUnauthorized());
+		long clicker = createAccessory(auth, "Mecanismo clicker", 120);
+		long iman = createAccessory(auth, "Imán", 15);
+
+		// Nombre repetido
+		mvc.perform(post("/api/admin/accessories").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"mecanismo CLICKER\",\"cost\":10}"))
+				.andExpect(status().isConflict());
+
+		// Producto con 1 clicker + 2 imanes = 150
+		String json = productJson("Clicker con imanes", false, "[]").replace("\"hidden\":false}",
+				"\"hidden\":false,\"cost\":{\"grams\":5,\"accessories\":[{\"accessoryId\":" + clicker
+						+ ",\"quantity\":1},{\"accessoryId\":" + iman + ",\"quantity\":2}]}}");
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.cost.accessoriesCost", is(150)));
+
+		// Cambiar el precio del accesorio actualiza el costo del producto
+		mvc.perform(put("/api/admin/accessories/" + iman).header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Imán neodimio\",\"cost\":25}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.usedBy", is(1)));
+		mvc.perform(get("/api/admin/products/clicker-con-imanes").header("Authorization", auth))
+				.andExpect(jsonPath("$.cost.accessoriesCost", is(170)));
+
+		// Accesorio inexistente
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json.replace("\"accessoryId\":" + clicker, "\"accessoryId\":99999")))
+				.andExpect(status().isBadRequest());
+
+		// Eliminarlo lo quita del producto
+		mvc.perform(delete("/api/admin/accessories/" + clicker).header("Authorization", auth))
+				.andExpect(status().isNoContent());
+		mvc.perform(get("/api/admin/products/clicker-con-imanes").header("Authorization", auth))
+				.andExpect(jsonPath("$.cost.accessoriesCost", is(50)))
+				.andExpect(jsonPath("$.cost.accessories", hasSize(1)));
 	}
 }
