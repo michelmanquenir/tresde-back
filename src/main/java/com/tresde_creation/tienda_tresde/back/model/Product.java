@@ -73,6 +73,14 @@ public class Product {
 
 	private boolean hidden;
 
+	/** Todas sus categorías; la primera es la principal (y se copia en category_slug). */
+	@ElementCollection
+	@CollectionTable(name = "product_categories", joinColumns = @JoinColumn(name = "product_id"))
+	@OrderColumn(name = "position")
+	@Column(name = "category_slug")
+	@BatchSize(size = 100)
+	private List<String> categories = new ArrayList<>();
+
 	@ElementCollection
 	@CollectionTable(name = "product_colors", joinColumns = @JoinColumn(name = "product_id"))
 	@OrderColumn(name = "position")
@@ -112,7 +120,16 @@ public class Product {
 	public String getName() { return name; }
 	public void setName(String name) { this.name = name; }
 	public String getCategory() { return category; }
-	public void setCategory(String category) { this.category = category; }
+	/** Categorías del producto (si no tiene filas en product_categories, solo la principal). */
+	public List<String> getCategories() {
+		return categories.isEmpty() && category != null ? List.of(category) : List.copyOf(categories);
+	}
+
+	public void setCategories(List<String> list) {
+		categories.clear();
+		categories.addAll(list);
+		category = list.get(0);
+	}
 	public Integer getPrice() { return price; }
 	public void setPrice(Integer price) { this.price = price; }
 	public Integer getOldPrice() { return oldPrice; }

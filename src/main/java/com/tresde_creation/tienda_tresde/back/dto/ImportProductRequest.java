@@ -10,6 +10,7 @@ public record ImportProductRequest(
 		String id,
 		String name,
 		String category,
+		List<String> categories,
 		Integer price,
 		Integer oldPrice,
 		String description,
@@ -26,7 +27,7 @@ public record ImportProductRequest(
 		ProductCost cost) {
 
 	public ProductRequest toProductRequest() {
-		return new ProductRequest(name, category, price, oldPrice, description, material, heightCm, printHours,
+		return new ProductRequest(name, category, categories, price, oldPrice, description, material, heightCm, printHours,
 				colors, images, isNew, bestSeller, hidden, stock == null ? 0 : stock, cost);
 	}
 }

@@ -13,7 +13,8 @@ import com.tresde_creation.tienda_tresde.back.model.Material;
 public record ProductResponse(
 		String id,
 		String name,
-		String category,
+		String category, // principal
+		List<String> categories, // todas (la primera es la principal)
 		Integer price,
 		Integer oldPrice,
 		String description,

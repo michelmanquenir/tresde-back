@@ -23,8 +23,12 @@ public record ProductRequest(
 		@Size(max = 120, message = "Máximo 120 caracteres.")
 		String name,
 
-		@NotBlank(message = "Elige una categoría.")
+		/** Formato antiguo (una sola categoría). Se usa solo si "categories" viene vacío. */
 		String category,
+
+		/** Categorías del producto; la primera es la principal. */
+		@Size(max = 6, message = "Máximo 6 categorías.")
+		List<String> categories,
 
 		@NotNull(message = "Indica el precio.")
 		@Positive(message = "El precio debe ser mayor a 0.")

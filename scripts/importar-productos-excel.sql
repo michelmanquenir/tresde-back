@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Importa los productos del Excel de costos (noviembre 2026).
--- Requiere el backend desplegado con la migración V7 (catálogo de accesorios).
+-- Requiere el backend desplegado con las migraciones V7 (accesorios) y V9 (categorías múltiples).
 -- Ejecutar en Supabase → SQL Editor. Es seguro repetirlo: no duplica nada.
 --
 --  • Productos nuevos: se crean OCULTOS y con stock 0, en PLA.
@@ -42,6 +42,11 @@ ON CONFLICT (id) DO UPDATE SET
     batch_hours  = EXCLUDED.batch_hours,
     batch_pieces = EXCLUDED.batch_pieces,
     updated_at   = CURRENT_TIMESTAMP;
+
+-- Categoría principal en la tabla de categorías múltiples (V9), si aún no la tiene
+INSERT INTO product_categories (product_id, position, category_slug)
+SELECT p.id, 0, p.category_slug FROM products p
+WHERE NOT EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = p.id);
 
 -- Accesorios del catálogo (si ya existen con ese nombre, se respetan su costo actual)
 INSERT INTO accessories (name, cost, created_at) VALUES

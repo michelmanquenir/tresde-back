@@ -500,4 +500,62 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.cost.accessoriesCost", is(50)))
 				.andExpect(jsonPath("$.cost.accessories", hasSize(1)));
 	}
+
+	@Test
+	void categoriasMultiplesYMantenedor() throws Exception {
+		String auth = token();
+
+		// Crear categoría: el slug sale del nombre y queda al final
+		mvc.perform(post("/api/admin/categories").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Navidad\",\"description\":\"Adornos\",\"icon\":\"star\",\"hue\":120}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.slug", is("navidad")))
+				.andExpect(jsonPath("$.products", is(0)));
+		mvc.perform(post("/api/admin/categories").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"navidad\",\"icon\":\"star\",\"hue\":120}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.errors.name").exists());
+		mvc.perform(get("/api/categories")).andExpect(jsonPath("$", hasSize(7)))
+				.andExpect(jsonPath("$[6].slug", is("navidad")));
+
+		// Producto en dos categorías: la primera es la principal
+		String json = productJson("Grinch", false, "[]").replace("\"category\":\"figuras\"", "\"categories\":[\"navidad\",\"decoracion\",\"navidad\"]");
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.category", is("navidad")))
+				.andExpect(jsonPath("$.categories", hasSize(2)));
+		mvc.perform(get("/api/products").param("category", "decoracion"))
+				.andExpect(jsonPath("$[*].id", hasItem("grinch")));
+		mvc.perform(get("/api/products").param("category", "navidad"))
+				.andExpect(jsonPath("$[*].id", hasItem("grinch")));
+
+		// Sin categorías -> 400
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Sin cat", false, "[]").replace("\"category\":\"figuras\"", "\"categories\":[]")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.categories").exists());
+
+		// Reordenar: navidad primero
+		mvc.perform(post("/api/admin/categories/reorder").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("[\"navidad\"]"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].slug", is("navidad")))
+				.andExpect(jsonPath("$[0].products", is(1)));
+
+		// Editar
+		mvc.perform(put("/api/admin/categories/navidad").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Navidad 2026\",\"description\":\"\",\"icon\":\"star\",\"hue\":0}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name", is("Navidad 2026")));
+
+		// "figuras" tiene productos que solo están en ella -> no se puede eliminar
+		mvc.perform(delete("/api/admin/categories/figuras").header("Authorization", auth))
+				.andExpect(status().isConflict());
+
+		// Eliminar "navidad": el Grinch queda solo en decoración (que pasa a ser la principal)
+		mvc.perform(delete("/api/admin/categories/navidad").header("Authorization", auth)).andExpect(status().isNoContent());
+		mvc.perform(get("/api/admin/products/grinch").header("Authorization", auth))
+				.andExpect(jsonPath("$.category", is("decoracion")))
+				.andExpect(jsonPath("$.categories", hasSize(1)));
+	}
 }

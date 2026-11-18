@@ -51,7 +51,7 @@ public class ProductService {
 	public List<ProductResponse> listVisible(String category, String query) {
 		String q = query == null ? "" : query.trim().toLowerCase();
 		return products.findVisibleNewestFirst().stream()
-				.filter(p -> category == null || category.isBlank() || p.getCategory().equals(category))
+				.filter(p -> category == null || category.isBlank() || p.getCategories().contains(category))
 				.filter(p -> q.isEmpty()
 						|| p.getName().toLowerCase().contains(q)
 						|| p.getDescription().toLowerCase().contains(q))
@@ -166,14 +166,12 @@ public class ProductService {
 	}
 
 	private void apply(Product p, ProductRequest req) {
-		if (!categories.existsById(req.category())) {
-			throw ApiException.badRequest("La categoría \"" + req.category() + "\" no existe.");
-		}
+		List<String> cats = categoriesOf(req);
 		if (req.oldPrice() != null && req.oldPrice() <= req.price()) {
 			throw ApiException.badRequest("El precio anterior debe ser mayor al precio actual.");
 		}
 		p.setName(req.name().trim());
-		p.setCategory(req.category());
+		p.setCategories(cats);
 		p.setPrice(req.price());
 		p.setOldPrice(req.oldPrice());
 		p.setDescription(req.description().trim());
@@ -191,6 +189,21 @@ public class ProductService {
 		p.setBatchHours(cost == null ? null : cost.batchHours());
 		p.setBatchPieces(cost == null ? null : cost.batchPieces());
 		p.setAccessories(accessoriesOf(cost));
+	}
+
+	/** Categorías elegidas (sin repetir, en el orden recibido); valida que existan. */
+	private List<String> categoriesOf(ProductRequest req) {
+		List<String> raw = req.categories() != null && !req.categories().isEmpty() ? req.categories()
+				: req.category() == null ? List.of() : List.of(req.category());
+		List<String> cats = raw.stream().filter(s -> s != null && !s.isBlank()).map(String::trim).distinct().toList();
+		if (cats.isEmpty()) {
+			String msg = "Elige al menos una categoría.";
+			throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, msg, Map.of("categories", msg));
+		}
+		for (String slug : cats) {
+			if (!categories.existsById(slug)) throw ApiException.badRequest("La categoría \"" + slug + "\" no existe.");
+		}
+		return cats;
 	}
 
 	/** Borra las fotos subidas que dejaron de usarse (y que ningún otro producto usa). */
@@ -227,7 +240,7 @@ public class ProductService {
 
 	private ProductResponse toResponse(Product p, ProductCost cost) {
 		return new ProductResponse(
-				p.getId(), p.getName(), p.getCategory(), p.getPrice(), p.getOldPrice(), p.getDescription(),
+				p.getId(), p.getName(), p.getCategory(), p.getCategories(), p.getPrice(), p.getOldPrice(), p.getDescription(),
 				p.getMaterial(), List.copyOf(p.getColors()),
 				p.getImages().stream().map(ImageUrls::absolute).toList(),
 				p.getHeightCm(), p.isNew(), p.isBestSeller(), p.isHidden(), p.getRating(), p.getPrintHours(), p.getStock(),
