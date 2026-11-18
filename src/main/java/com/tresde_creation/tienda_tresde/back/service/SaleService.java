@@ -12,6 +12,7 @@ import com.tresde_creation.tienda_tresde.back.dto.SaleResponse;
 import com.tresde_creation.tienda_tresde.back.model.CostSettings;
 import com.tresde_creation.tienda_tresde.back.model.Product;
 import com.tresde_creation.tienda_tresde.back.model.Sale;
+import com.tresde_creation.tienda_tresde.back.model.SaleCost;
 import com.tresde_creation.tienda_tresde.back.repository.CostSettingsRepository;
 import com.tresde_creation.tienda_tresde.back.repository.ProductRepository;
 import com.tresde_creation.tienda_tresde.back.repository.SaleRepository;
@@ -66,7 +67,7 @@ public class SaleService {
 		s.setColor(blankToNull(req.color()) == null ? null : req.color().toLowerCase());
 		s.setQuantity(req.quantity());
 		s.setUnitPrice(req.unitPrice() != null ? req.unitPrice() : product.getPrice());
-		s.setUnitCost(settings == null ? null : unitCost(product, settings, accessoryService::costs));
+		s.setCost(settings == null ? null : unitCost(product, settings, accessoryService::costs));
 		s.setReservePercent(settings == null ? 0 : settings.getMachineReservePercent());
 		s.setStockDiscounted(true);
 		s.setChannel(blankToNull(req.channel()));
@@ -88,7 +89,7 @@ public class SaleService {
 	}
 
 	/** Mismo cálculo que el panel (utils/pricing.ts). null si el producto no tiene datos de costo. */
-	static Double unitCost(Product p, CostSettings s, java.util.function.Supplier<java.util.Map<Long, Integer>> accessoryCosts) {
+	static SaleCost unitCost(Product p, CostSettings s, java.util.function.Supplier<java.util.Map<Long, Integer>> accessoryCosts) {
 		double grams = p.getGrams() == null ? 0 : p.getGrams();
 		double hours = p.getBatchHours() == null ? 0 : p.getBatchHours();
 		Integer acc = AccessoryService.costOf(p, accessoryCosts.get());
@@ -96,8 +97,8 @@ public class SaleService {
 		if (grams == 0 && hours == 0 && accessories == 0) return null;
 		int pieces = Math.max(1, p.getBatchPieces() == null ? 1 : p.getBatchPieces());
 		double filament = grams * s.getFilamentPrice(p.getMaterial()) / 1000.0;
-		double machine = hours * s.getMachineHourCost() / pieces;
-		return filament + machine + accessories;
+		double electricity = hours * s.getMachineHourCost() / pieces;
+		return new SaleCost(filament, accessories, electricity);
 	}
 
 	private static String blankToNull(String v) {
@@ -106,7 +107,8 @@ public class SaleService {
 
 	private static SaleResponse toResponse(Sale s) {
 		return new SaleResponse(s.getId(), s.getProductId(), s.getProductName(), s.getCategory(), s.getColor(),
-				s.getQuantity(), s.getUnitPrice(), s.getUnitCost(), s.getReservePercent(), s.isStockDiscounted(),
+				s.getQuantity(), s.getUnitPrice(), s.getUnitCost(), s.getUnitFilamentCost(), s.getUnitAccessoriesCost(),
+				s.getUnitElectricityCost(), s.getReservePercent(), s.isStockDiscounted(),
 				s.getChannel(), s.getCustomer(), s.getNote(), s.getSoldAt(), s.getCreatedAt());
 	}
 }

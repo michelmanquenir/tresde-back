@@ -411,6 +411,9 @@ class ApiIntegrationTests {
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.unitPrice", is(25990)))
 				.andExpect(jsonPath("$.unitCost", is(220.0)))
+				.andExpect(jsonPath("$.unitFilamentCost", is(150.0)))
+				.andExpect(jsonPath("$.unitElectricityCost", is(70.0)))
+				.andExpect(jsonPath("$.unitAccessoriesCost", is(0.0)))
 				.andExpect(jsonPath("$.reservePercent", is(10.0)))
 				.andExpect(jsonPath("$.productName", is("Figura vendible")))
 				.andReturn().getResponse().getContentAsString();

@@ -37,6 +37,15 @@ public class Sale {
 	@Column(name = "unit_cost")
 	private Double unitCost;
 
+	@Column(name = "unit_filament_cost")
+	private Double unitFilamentCost;
+
+	@Column(name = "unit_accessories_cost")
+	private Double unitAccessoriesCost;
+
+	@Column(name = "unit_electricity_cost")
+	private Double unitElectricityCost;
+
 	@Column(name = "reserve_percent")
 	private double reservePercent;
 
@@ -74,6 +83,17 @@ public class Sale {
 	public void setUnitPrice(int unitPrice) { this.unitPrice = unitPrice; }
 	public Double getUnitCost() { return unitCost; }
 	public void setUnitCost(Double unitCost) { this.unitCost = unitCost; }
+	public Double getUnitFilamentCost() { return unitFilamentCost; }
+	public Double getUnitAccessoriesCost() { return unitAccessoriesCost; }
+	public Double getUnitElectricityCost() { return unitElectricityCost; }
+
+	/** Guarda el costo unitario y su desglose (null = el producto no tenía costos). */
+	public void setCost(SaleCost c) {
+		this.unitCost = c == null ? null : c.total();
+		this.unitFilamentCost = c == null ? null : c.filament();
+		this.unitAccessoriesCost = c == null ? null : c.accessories();
+		this.unitElectricityCost = c == null ? null : c.electricity();
+	}
 	public double getReservePercent() { return reservePercent; }
 	public void setReservePercent(double reservePercent) { this.reservePercent = reservePercent; }
 	public boolean isStockDiscounted() { return stockDiscounted; }

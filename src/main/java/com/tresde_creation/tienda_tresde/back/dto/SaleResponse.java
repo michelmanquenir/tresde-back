@@ -15,6 +15,9 @@ public record SaleResponse(
 		int quantity,
 		int unitPrice,
 		Double unitCost,
+		Double unitFilamentCost, // desglose (null en ventas antiguas)
+		Double unitAccessoriesCost,
+		Double unitElectricityCost,
 		double reservePercent,
 		boolean stockDiscounted,
 		String channel,
