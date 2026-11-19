@@ -88,17 +88,14 @@ public class SaleService {
 		sales.delete(s);
 	}
 
-	/** Mismo cálculo que el panel (utils/pricing.ts). null si el producto no tiene datos de costo. */
+	/** Materia prima de una unidad (filamento + accesorios), sin luz. null si el producto no tiene esos datos. */
 	static SaleCost unitCost(Product p, CostSettings s, java.util.function.Supplier<java.util.Map<Long, Integer>> accessoryCosts) {
 		double grams = p.getGrams() == null ? 0 : p.getGrams();
-		double hours = p.getBatchHours() == null ? 0 : p.getBatchHours();
 		Integer acc = AccessoryService.costOf(p, accessoryCosts.get());
 		int accessories = acc == null ? 0 : acc;
-		if (grams == 0 && hours == 0 && accessories == 0) return null;
-		int pieces = Math.max(1, p.getBatchPieces() == null ? 1 : p.getBatchPieces());
+		if (grams == 0 && accessories == 0) return null;
 		double filament = grams * s.getFilamentPrice(p.getMaterial()) / 1000.0;
-		double electricity = hours * s.getMachineHourCost() / pieces;
-		return new SaleCost(filament, accessories, electricity);
+		return new SaleCost(filament, accessories);
 	}
 
 	private static String blankToNull(String v) {
@@ -108,7 +105,7 @@ public class SaleService {
 	private static SaleResponse toResponse(Sale s) {
 		return new SaleResponse(s.getId(), s.getProductId(), s.getProductName(), s.getCategory(), s.getColor(),
 				s.getQuantity(), s.getUnitPrice(), s.getUnitCost(), s.getUnitFilamentCost(), s.getUnitAccessoriesCost(),
-				s.getUnitElectricityCost(), s.getReservePercent(), s.isStockDiscounted(),
+				s.getReservePercent(), s.isStockDiscounted(),
 				s.getChannel(), s.getCustomer(), s.getNote(), s.getSoldAt(), s.getCreatedAt());
 	}
 }

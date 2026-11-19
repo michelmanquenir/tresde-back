@@ -14,10 +14,9 @@ public record SaleResponse(
 		String color,
 		int quantity,
 		int unitPrice,
-		Double unitCost,
+		Double unitCost, // materia prima por unidad (en ventas antiguas incluía la luz)
 		Double unitFilamentCost, // desglose (null en ventas antiguas)
 		Double unitAccessoriesCost,
-		Double unitElectricityCost,
 		double reservePercent,
 		boolean stockDiscounted,
 		String channel,

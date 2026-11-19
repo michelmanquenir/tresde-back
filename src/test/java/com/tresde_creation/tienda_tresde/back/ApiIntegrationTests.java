@@ -404,15 +404,14 @@ class ApiIntegrationTests {
 
 		mvc.perform(get("/api/admin/sales")).andExpect(status().isUnauthorized());
 
-		// Vende 2 de 5: precio actual por defecto y costo congelado (10 g × $15 + 2 h × $35 = $220)
+		// Vende 2 de 5: precio actual por defecto y costo congelado (materia prima: 10 g × $15 = $150; la luz no cuenta en ventas)
 		String sale = mvc.perform(post("/api/admin/sales").header("Authorization", auth)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"productId\":\"figura-vendible\",\"quantity\":2,\"color\":\"#FF7A00\",\"customer\":\"Ana\"}"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.unitPrice", is(25990)))
-				.andExpect(jsonPath("$.unitCost", is(220.0)))
+				.andExpect(jsonPath("$.unitCost", is(150.0)))
 				.andExpect(jsonPath("$.unitFilamentCost", is(150.0)))
-				.andExpect(jsonPath("$.unitElectricityCost", is(70.0)))
 				.andExpect(jsonPath("$.unitAccessoriesCost", is(0.0)))
 				.andExpect(jsonPath("$.reservePercent", is(10.0)))
 				.andExpect(jsonPath("$.productName", is("Figura vendible")))
