@@ -560,4 +560,58 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.category", is("decoracion")))
 				.andExpect(jsonPath("$.categories", hasSize(1)));
 	}
+
+	@Test
+	void cuadraturaSemanal() throws Exception {
+		String auth = token();
+		String soldAt = java.time.Instant.now().minusSeconds(86400).toString();
+		String cut = java.time.Instant.now().plusSeconds(3600).toString();
+		String json = productJson("Figura cuadrada", false, "[]").replace("\"hidden\":false}",
+				"\"hidden\":false,\"cost\":{\"grams\":10,\"batchHours\":2,\"batchPieces\":1}}");
+		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content(json)).andExpect(status().isCreated());
+		// 2 × 25990 = 51980 · materia prima 2 × 150 = 300 · máquina 10% = 5198 · ganancia 46482
+		String sale = mvc.perform(post("/api/admin/sales").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"figura-cuadrada\",\"quantity\":2,\"soldAt\":\"" + soldAt + "\"}"))
+				.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		String saleId = sale.replaceAll("^\\{\"id\":([0-9]+).*", "$1");
+
+		mvc.perform(get("/api/admin/closings/preview").param("to", cut).header("Authorization", auth))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.salesCount", is(1)))
+				.andExpect(jsonPath("$.revenue", is(51980.0)))
+				.andExpect(jsonPath("$.materials", is(300.0)))
+				.andExpect(jsonPath("$.machine", is(5198.0)))
+				.andExpect(jsonPath("$.profit", is(46482.0)));
+
+		// Cerrar la semana retirando un poco menos de ganancia
+		String closing = mvc.perform(post("/api/admin/closings").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"to\":\"" + cut + "\",\"profitWithdrawn\":40000}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.machineWithdrawn", is(5198.0)))
+				.andExpect(jsonPath("$.materialsReinvested", is(300.0)))
+				.andExpect(jsonPath("$.profitWithdrawn", is(40000.0)))
+				.andReturn().getResponse().getContentAsString();
+		String closingId = closing.replaceAll("^\\{\"id\":([0-9]+).*", "$1");
+
+		mvc.perform(get("/api/admin/closings").header("Authorization", auth))
+				.andExpect(jsonPath("$.machinePrice", is(1300000)))
+				.andExpect(jsonPath("$.machineRecovered", is(5198.0)))
+				.andExpect(jsonPath("$.machineRemaining", is(1294802.0)))
+				.andExpect(jsonPath("$.pendingSales", is(0)))
+				.andExpect(jsonPath("$.closings", hasSize(1)));
+
+		// No se repite y la venta ya cerrada no se puede anular
+		mvc.perform(post("/api/admin/closings").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"to\":\"" + cut + "\"}"))
+				.andExpect(status().isConflict());
+		mvc.perform(delete("/api/admin/sales/" + saleId).header("Authorization", auth)).andExpect(status().isConflict());
+
+		// Anular la cuadratura deja la venta pendiente otra vez
+		mvc.perform(delete("/api/admin/closings/" + closingId).header("Authorization", auth)).andExpect(status().isNoContent());
+		mvc.perform(get("/api/admin/closings").header("Authorization", auth))
+				.andExpect(jsonPath("$.machineRecovered", is(0.0)))
+				.andExpect(jsonPath("$.pendingSales", is(1)));
+		mvc.perform(delete("/api/admin/sales/" + saleId).header("Authorization", auth)).andExpect(status().isNoContent());
+	}
 }

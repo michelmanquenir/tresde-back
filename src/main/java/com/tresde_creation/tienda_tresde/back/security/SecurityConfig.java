@@ -40,8 +40,9 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.HEAD, "/api/health").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/health", "/api/products/**", "/api/categories/**",
 								"/api/images/**").permitAll()
-						// Trabajadores (STAFF): todo el panel menos usuarios y cambiar la configuración de costos
+						// Trabajadores (STAFF): todo el panel menos usuarios, cuadraturas y cambiar la configuración de costos
 						.requestMatchers("/api/admin/users/**").hasRole("ADMIN")
+						.requestMatchers("/api/admin/closings/**").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.PUT, "/api/admin/settings/**").hasRole("ADMIN")
 						.requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
 						.anyRequest().authenticated())

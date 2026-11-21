@@ -33,6 +33,7 @@ public class CostSettingsService {
 		s.setPriceMultiplier(dto.priceMultiplier());
 		// Los materiales que no vengan conservan su precio actual
 		dto.filamentPricePerKg().forEach(s::setFilamentPrice);
+		if (dto.machinePrice() != null) s.setMachinePrice(dto.machinePrice());
 		return toDto(s);
 	}
 
@@ -44,6 +45,7 @@ public class CostSettingsService {
 	private static CostSettingsDto toDto(CostSettings s) {
 		Map<Material, Integer> prices = new EnumMap<>(Material.class);
 		for (Material m : Material.values()) prices.put(m, s.getFilamentPrice(m));
-		return new CostSettingsDto(s.getMachineHourCost(), s.getMachineReservePercent(), s.getPriceMultiplier(), prices);
+		return new CostSettingsDto(s.getMachineHourCost(), s.getMachineReservePercent(), s.getPriceMultiplier(), prices,
+				s.getMachinePrice());
 	}
 }

@@ -22,5 +22,6 @@ public record SaleResponse(
 		String channel,
 		String customer,
 		String note,
+		Long closingId, // cuadratura en que se cerró (no viene si está pendiente)
 		Instant soldAt,
 		Instant createdAt) {}

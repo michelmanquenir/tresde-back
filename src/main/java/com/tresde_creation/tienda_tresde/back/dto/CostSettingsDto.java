@@ -27,4 +27,9 @@ public record CostSettingsDto(
 		Double priceMultiplier,
 
 		@NotNull(message = "Indica el precio del filamento.")
-		Map<Material, @NotNull(message = "Indica el precio.") @PositiveOrZero(message = "El precio no puede ser negativo.") Integer> filamentPricePerKg) {}
+		Map<Material, @NotNull(message = "Indica el precio.") @PositiveOrZero(message = "El precio no puede ser negativo.") Integer> filamentPricePerKg,
+
+		/** Valor de la impresora (opcional: si no viene, se conserva). */
+		@PositiveOrZero(message = "El valor no puede ser negativo.")
+		@jakarta.validation.constraints.Max(value = 100000000, message = "Valor demasiado alto.")
+		Integer machinePrice) {}

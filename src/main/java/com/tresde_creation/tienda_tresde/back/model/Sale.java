@@ -53,6 +53,10 @@ public class Sale {
 	private String customer;
 	private String note;
 
+	/** Cuadratura en la que se cerró (null = pendiente). */
+	@Column(name = "closing_id")
+	private Long closingId;
+
 	@Column(name = "sold_at")
 	private Instant soldAt;
 
@@ -78,6 +82,8 @@ public class Sale {
 	public void setQuantity(int quantity) { this.quantity = quantity; }
 	public int getUnitPrice() { return unitPrice; }
 	public void setUnitPrice(int unitPrice) { this.unitPrice = unitPrice; }
+	public Long getClosingId() { return closingId; }
+	public void setClosingId(Long closingId) { this.closingId = closingId; }
 	public Double getUnitCost() { return unitCost; }
 	public void setUnitCost(Double unitCost) { this.unitCost = unitCost; }
 	public Double getUnitFilamentCost() { return unitFilamentCost; }

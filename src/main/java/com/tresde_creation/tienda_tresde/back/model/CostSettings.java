@@ -39,6 +39,10 @@ public class CostSettings {
 	@Column(name = "filament_tpu")
 	private int filamentTpu;
 
+	/** Valor de la impresora: lo retirado para la máquina en las cuadraturas se descuenta de aquí. */
+	@Column(name = "machine_price")
+	private int machinePrice;
+
 	@Column(name = "updated_at")
 	private Instant updatedAt;
 
@@ -53,6 +57,8 @@ public class CostSettings {
 	public void setMachineHourCost(double v) { this.machineHourCost = v; }
 	public double getMachineReservePercent() { return machineReservePercent; }
 	public void setMachineReservePercent(double v) { this.machineReservePercent = v; }
+	public int getMachinePrice() { return machinePrice; }
+	public void setMachinePrice(int v) { this.machinePrice = v; }
 	public double getPriceMultiplier() { return priceMultiplier; }
 	public void setPriceMultiplier(double v) { this.priceMultiplier = v; }
 

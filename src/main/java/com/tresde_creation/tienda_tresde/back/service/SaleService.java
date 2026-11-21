@@ -82,6 +82,10 @@ public class SaleService {
 	@Transactional
 	public void delete(Long id) {
 		Sale s = sales.findById(id).orElseThrow(() -> ApiException.notFound("Venta no encontrada."));
+		if (s.getClosingId() != null) {
+			throw new ApiException(HttpStatus.CONFLICT,
+					"Esta venta ya está en una cuadratura. Anula esa cuadratura primero si necesitas corregirla.");
+		}
 		if (s.isStockDiscounted() && s.getProductId() != null) {
 			products.findById(s.getProductId()).ifPresent(p -> p.setStock(p.getStock() + s.getQuantity()));
 		}
@@ -106,6 +110,6 @@ public class SaleService {
 		return new SaleResponse(s.getId(), s.getProductId(), s.getProductName(), s.getCategory(), s.getColor(),
 				s.getQuantity(), s.getUnitPrice(), s.getUnitCost(), s.getUnitFilamentCost(), s.getUnitAccessoriesCost(),
 				s.getReservePercent(), s.isStockDiscounted(),
-				s.getChannel(), s.getCustomer(), s.getNote(), s.getSoldAt(), s.getCreatedAt());
+				s.getChannel(), s.getCustomer(), s.getNote(), s.getClosingId(), s.getSoldAt(), s.getCreatedAt());
 	}
 }
