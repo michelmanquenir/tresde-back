@@ -614,4 +614,94 @@ class ApiIntegrationTests {
 				.andExpect(jsonPath("$.pendingSales", is(1)));
 		mvc.perform(delete("/api/admin/sales/" + saleId).header("Authorization", auth)).andExpect(status().isNoContent());
 	}
+
+	@Test
+	void entregasDeInventarioSumanStockAlAceptar() throws Exception {
+		String admin = token();
+		mvc.perform(post("/api/admin/products").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Llavero gato", false, "[]"))).andExpect(status().isCreated()); // stock 5
+		mvc.perform(post("/api/admin/users").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Pedro\",\"username\":\"pedro\",\"password\":\"secreta123\",\"role\":\"STAFF\"}"))
+				.andExpect(status().isCreated());
+		String pedro = loginAs("pedro", "secreta123");
+
+		// El trabajador puede elegir a quién entregar (todos menos él)
+		mvc.perform(get("/api/admin/deliveries/recipients").header("Authorization", pedro))
+				.andExpect(jsonPath("$[*].username", hasItem("admin")))
+				.andExpect(jsonPath("$[*].username", not(hasItem("pedro"))));
+
+		// El admin entrega 10 llaveros (en dos líneas que se suman) a Pedro
+		String body = mvc.perform(post("/api/admin/deliveries").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"recipientUsername":"pedro","note":"Primera tanda",
+						 "items":[{"productId":"llavero-gato","quantity":6},{"productId":"llavero-gato","quantity":4}]}"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.status", is("PENDING")))
+				.andExpect(jsonPath("$.senderName", is("Administrador")))
+				.andExpect(jsonPath("$.recipientName", is("Pedro")))
+				.andExpect(jsonPath("$.totalUnits", is(10)))
+				.andExpect(jsonPath("$.items", hasSize(1)))
+				.andReturn().getResponse().getContentAsString();
+		String id = body.replaceAll("^\\{\"id\":([0-9]+).*", "$1");
+
+		// Mientras esté pendiente, el stock no cambia
+		mvc.perform(get("/api/admin/products/llavero-gato").header("Authorization", admin))
+				.andExpect(jsonPath("$.stock", is(5)));
+		mvc.perform(get("/api/admin/deliveries/pending-count").header("Authorization", pedro))
+				.andExpect(jsonPath("$.count", is(1)));
+
+		// Solo quien recibe puede aceptar
+		mvc.perform(post("/api/admin/deliveries/" + id + "/accept").header("Authorization", admin))
+				.andExpect(status().isForbidden());
+
+		// Comentario y aceptación
+		mvc.perform(post("/api/admin/deliveries/" + id + "/comments").header("Authorization", pedro)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"comment\":\"\"}"))
+				.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/admin/deliveries/" + id + "/accept").header("Authorization", pedro)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"comment\":\"Recibidos, todo ok\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status", is("ACCEPTED")))
+				.andExpect(jsonPath("$.resolvedBy", is("pedro")))
+				.andExpect(jsonPath("$.comments[0].body", is("Recibidos, todo ok")))
+				.andExpect(jsonPath("$.comments[0].authorName", is("Pedro")));
+		mvc.perform(get("/api/admin/products/llavero-gato").header("Authorization", admin))
+				.andExpect(jsonPath("$.stock", is(15)));
+
+		// No se puede aceptar dos veces
+		mvc.perform(post("/api/admin/deliveries/" + id + "/accept").header("Authorization", pedro))
+				.andExpect(status().isConflict());
+
+		// Rechazar y cancelar no suman stock
+		String second = mvc.perform(post("/api/admin/deliveries").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"recipientUsername\":\"pedro\",\"items\":[{\"productId\":\"llavero-gato\",\"quantity\":3}]}"))
+				.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		mvc.perform(post("/api/admin/deliveries/" + second.replaceAll("^\\{\"id\":([0-9]+).*", "$1") + "/reject")
+				.header("Authorization", pedro).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"comment\":\"Faltan 2\"}"))
+				.andExpect(jsonPath("$.status", is("REJECTED")));
+		String third = mvc.perform(post("/api/admin/deliveries").header("Authorization", pedro)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"recipientUsername\":\"admin\",\"items\":[{\"productId\":\"llavero-gato\",\"quantity\":1}]}"))
+				.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		mvc.perform(post("/api/admin/deliveries/" + third.replaceAll("^\\{\"id\":([0-9]+).*", "$1") + "/cancel")
+				.header("Authorization", pedro))
+				.andExpect(jsonPath("$.status", is("CANCELLED")));
+		mvc.perform(get("/api/admin/products/llavero-gato").header("Authorization", admin))
+				.andExpect(jsonPath("$.stock", is(15)));
+
+		// Validaciones: a uno mismo, sin productos
+		mvc.perform(post("/api/admin/deliveries").header("Authorization", pedro).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"recipientUsername\":\"pedro\",\"items\":[{\"productId\":\"llavero-gato\",\"quantity\":1}]}"))
+				.andExpect(status().isBadRequest());
+		mvc.perform(post("/api/admin/deliveries").header("Authorization", pedro).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"recipientUsername\":\"admin\",\"items\":[]}"))
+				.andExpect(status().isBadRequest());
+
+		mvc.perform(get("/api/admin/deliveries").header("Authorization", pedro)).andExpect(jsonPath("$", hasSize(3)));
+		mvc.perform(get("/api/admin/deliveries").param("status", "ACCEPTED").header("Authorization", admin))
+				.andExpect(jsonPath("$", hasSize(1)));
+	}
 }

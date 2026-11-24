@@ -53,6 +53,22 @@ Requieren el header `Authorization: Bearer <token>` y el rol ADMIN.
 | POST | `/api/admin/products/import` | Reemplaza todo el catálogo con un JSON exportado |
 | POST | `/api/admin/images` | Subir foto (multipart, campo `file`, máx. 5 MB) → `{id, url}` |
 
+### Entregas de inventario (ADMIN y STAFF)
+
+Alguien entrega unidades a otro usuario del panel; el stock **recién se suma cuando quien recibe acepta**.
+Un trabajador solo ve las entregas en las que participa; el administrador ve todas.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/admin/deliveries?status=` | Entregas (PENDING, ACCEPTED, REJECTED, CANCELLED) con detalle y comentarios |
+| GET | `/api/admin/deliveries/pending-count` | `{count}`: entregas que esperan que yo las acepte |
+| GET | `/api/admin/deliveries/recipients` | Usuarios a los que puedo entregar |
+| POST | `/api/admin/deliveries` | `{recipientUsername, deliveredAt?, note?, items:[{productId, quantity}]}` |
+| POST | `/api/admin/deliveries/{id}/accept` | Solo quien recibe. Suma el stock. Body opcional `{comment}` |
+| POST | `/api/admin/deliveries/{id}/reject` | Solo quien recibe. No suma nada. Body opcional `{comment}` |
+| POST | `/api/admin/deliveries/{id}/cancel` | Quien entregó o un admin, mientras esté pendiente |
+| POST | `/api/admin/deliveries/{id}/comments` | `{comment}` |
+
 Los errores siempre responden así: `{"message": "...", "errors": {"campo": "mensaje"}}`.
 
 ## Variables de entorno (producción)
