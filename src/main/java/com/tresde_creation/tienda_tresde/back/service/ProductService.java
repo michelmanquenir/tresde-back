@@ -183,7 +183,7 @@ public class ProductService {
 		p.setNew(Boolean.TRUE.equals(req.isNew()));
 		p.setBestSeller(Boolean.TRUE.equals(req.bestSeller()));
 		p.setHidden(Boolean.TRUE.equals(req.hidden()));
-		p.setStock(req.stock());
+		if (req.stock() != null) p.setStock(req.stock()); // null: se conserva (un producto nuevo parte en 0)
 		ProductCost cost = req.cost();
 		p.setGrams(cost == null ? null : cost.grams());
 		p.setBatchHours(cost == null ? null : cost.batchHours());

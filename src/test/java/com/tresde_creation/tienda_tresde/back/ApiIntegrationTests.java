@@ -369,11 +369,49 @@ class ApiIntegrationTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.stock", is("El stock no puede ser negativo.")));
 
-		// Es obligatorio al crear
+		// Un producto nuevo sin stock parte en 0 (las unidades llegan con una entrega)
 		mvc.perform(post("/api/admin/products").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
 				.content(productJson("Sin stock", false, "[]").replace("\"stock\":5,", "")))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.errors.stock", is("Indica el stock disponible.")));
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.stock", is(0)));
+
+		// Editar sin mandar stock conserva el actual (no pisa ventas ni entregas aceptadas)
+		mvc.perform(put("/api/admin/products/figura-con-stock").header("Authorization", auth)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Figura con stock", false, "[]").replace("\"stock\":5,", "")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.stock", is(2)));
+	}
+
+	@Test
+	void productoNuevoSeEntregaYSumaAlAceptar() throws Exception {
+		String admin = token();
+		mvc.perform(post("/api/admin/users").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Pedro\",\"username\":\"pedro\",\"password\":\"secreta123\",\"role\":\"STAFF\"}"))
+				.andExpect(status().isCreated());
+		String pedro = loginAs("pedro", "secreta123");
+
+		// Recién impreso: se crea sin stock
+		mvc.perform(post("/api/admin/products").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Llavero nuevo", false, "[]").replace("\"stock\":5,", "")))
+				.andExpect(jsonPath("$.stock", is(0)));
+		String body = mvc.perform(post("/api/admin/deliveries").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"recipientUsername\":\"pedro\",\"items\":[{\"productId\":\"llavero-nuevo\",\"quantity\":10}]}"))
+				.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		String id = body.replaceAll("^\\{\"id\":([0-9]+).*", "$1");
+
+		// Mientras tanto se edita el producto (cambia el precio): no toca el stock
+		mvc.perform(put("/api/admin/products/llavero-nuevo").header("Authorization", admin)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Llavero nuevo", false, "[]").replace("\"stock\":5,", "").replace("25990", "3990")))
+				.andExpect(jsonPath("$.stock", is(0)));
+
+		mvc.perform(post("/api/admin/deliveries/" + id + "/accept").header("Authorization", pedro))
+				.andExpect(jsonPath("$.status", is("ACCEPTED")));
+		mvc.perform(get("/api/admin/products/llavero-nuevo").header("Authorization", admin))
+				.andExpect(jsonPath("$.stock", is(10)))
+				.andExpect(jsonPath("$.price", is(3990)));
 	}
 
 	@Test

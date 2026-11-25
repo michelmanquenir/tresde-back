@@ -62,7 +62,8 @@ public record ProductRequest(
 		Boolean bestSeller,
 		Boolean hidden,
 
-		@NotNull(message = "Indica el stock disponible.")
+		// Opcional: al crear, si no viene, parte en 0 (las unidades llegan con una entrega).
+		// Al editar, si no viene, se conserva el stock actual (así no se pisan ventas ni entregas aceptadas).
 		@PositiveOrZero(message = "El stock no puede ser negativo.")
 		@Max(value = 100000, message = "El stock máximo es 100000.")
 		Integer stock,
