@@ -44,6 +44,9 @@ public class SecurityConfig {
 						.requestMatchers("/api/admin/users/**").hasRole("ADMIN")
 						.requestMatchers("/api/admin/closings/**").hasRole("ADMIN")
 						.requestMatchers(HttpMethod.PUT, "/api/admin/settings/**").hasRole("ADMIN")
+						// Vendedores (SELLER): solo registrar ventas y ver las suyas (anular, no)
+						.requestMatchers(HttpMethod.GET, "/api/admin/sales").hasAnyRole("ADMIN", "STAFF", "SELLER")
+						.requestMatchers(HttpMethod.POST, "/api/admin/sales").hasAnyRole("ADMIN", "STAFF", "SELLER")
 						.requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth -> oauth

@@ -12,6 +12,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 	/** Ventas en [from, to), las más recientes primero. */
 	List<Sale> findBySoldAtGreaterThanEqualAndSoldAtLessThanOrderBySoldAtDescIdDesc(Instant from, Instant to);
 
+	/** Ventas de un vendedor en [from, to), las más recientes primero. */
+	List<Sale> findBySoldByIgnoreCaseAndSoldAtGreaterThanEqualAndSoldAtLessThanOrderBySoldAtDescIdDesc(
+			String soldBy, Instant from, Instant to);
+
 	/** Ventas pendientes de cuadratura vendidas antes del corte. */
 	List<Sale> findByClosingIdIsNullAndSoldAtLessThanOrderBySoldAtAscIdAsc(Instant to);
 

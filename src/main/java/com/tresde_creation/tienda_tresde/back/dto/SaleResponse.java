@@ -24,4 +24,6 @@ public record SaleResponse(
 		String note,
 		Long closingId, // cuadratura en que se cerró (no viene si está pendiente)
 		Instant soldAt,
-		Instant createdAt) {}
+		Instant createdAt,
+		String soldBy, // usuario que la registró (no viene en ventas antiguas)
+		String soldByName) {}

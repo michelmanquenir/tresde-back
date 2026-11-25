@@ -60,6 +60,13 @@ public class Sale {
 	@Column(name = "sold_at")
 	private Instant soldAt;
 
+	/** Usuario que registró la venta (null en ventas antiguas). */
+	@Column(name = "sold_by")
+	private String soldBy;
+
+	@Column(name = "sold_by_name")
+	private String soldByName;
+
 	@Column(name = "created_at")
 	private Instant createdAt;
 
@@ -108,4 +115,11 @@ public class Sale {
 	public Instant getSoldAt() { return soldAt; }
 	public void setSoldAt(Instant soldAt) { this.soldAt = soldAt; }
 	public Instant getCreatedAt() { return createdAt; }
+	public String getSoldBy() { return soldBy; }
+	public String getSoldByName() { return soldByName; }
+
+	public void setSoldBy(User user) {
+		this.soldBy = user == null ? null : user.getUsername();
+		this.soldByName = user == null ? null : user.getName();
+	}
 }

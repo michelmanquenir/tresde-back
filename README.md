@@ -53,6 +53,12 @@ Requieren el header `Authorization: Bearer <token>` y el rol ADMIN.
 | POST | `/api/admin/products/import` | Reemplaza todo el catálogo con un JSON exportado |
 | POST | `/api/admin/images` | Subir foto (multipart, campo `file`, máx. 5 MB) → `{id, url}` |
 
+### Rol vendedor (SELLER)
+
+Solo puede `GET` y `POST /api/admin/sales`; todo lo demás del panel responde 403.
+Vende productos publicados, siempre a precio de catálogo y con la fecha de hoy (el precio y la fecha que envíe se ignoran).
+Solo ve sus propias ventas y sin costos, % de máquina ni cuadratura. Cada venta guarda quién la registró (`soldBy`, `soldByName`).
+
 ### Entregas de inventario (ADMIN y STAFF)
 
 Alguien entrega unidades a otro usuario del panel; el stock **recién se suma cuando quien recibe acepta**.

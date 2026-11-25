@@ -616,6 +616,61 @@ class ApiIntegrationTests {
 	}
 
 	@Test
+	void vendedorSoloRegistraYVeSusVentasSinCostos() throws Exception {
+		String admin = token();
+		String json = productJson("Llavero perro", false, "[]").replace("\"hidden\":false}",
+				"\"hidden\":false,\"cost\":{\"grams\":10,\"batchHours\":2,\"batchPieces\":1}}");
+		mvc.perform(post("/api/admin/products").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content(json)).andExpect(status().isCreated()); // stock 5, precio 25990
+		mvc.perform(post("/api/admin/products").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content(productJson("Llavero oculto", true, "[]"))).andExpect(status().isCreated());
+		mvc.perform(post("/api/admin/users").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Vale\",\"username\":\"vale\",\"password\":\"secreta123\",\"role\":\"SELLER\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.role", is("SELLER")));
+		String vale = loginAs("vale", "secreta123");
+
+		// Una venta del admin (la vendedora no debe verla)
+		mvc.perform(post("/api/admin/sales").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"llavero-perro\",\"quantity\":1}")).andExpect(status().isCreated());
+
+		// La vendedora vende: precio de catálogo (ignora el que manda), sin costos en la respuesta
+		mvc.perform(post("/api/admin/sales").header("Authorization", vale).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"llavero-perro\",\"quantity\":2,\"unitPrice\":100,\"soldAt\":\"2020-01-01T12:00:00Z\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.unitPrice", is(25990)))
+				.andExpect(jsonPath("$.soldBy", is("vale")))
+				.andExpect(jsonPath("$.soldByName", is("Vale")))
+				.andExpect(jsonPath("$.unitCost").doesNotExist())
+				.andExpect(jsonPath("$.soldAt", not(startsWith("2020"))));
+		mvc.perform(get("/api/admin/sales").header("Authorization", vale))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0].unitCost").doesNotExist());
+		mvc.perform(get("/api/admin/sales").header("Authorization", admin))
+				.andExpect(jsonPath("$", hasSize(2)))
+				.andExpect(jsonPath("$[0].unitCost").exists());
+		mvc.perform(get("/api/admin/products/llavero-perro").header("Authorization", admin))
+				.andExpect(jsonPath("$.stock", is(2)));
+
+		// No puede vender productos ocultos
+		mvc.perform(post("/api/admin/sales").header("Authorization", vale).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"productId\":\"llavero-oculto\",\"quantity\":1}")).andExpect(status().isNotFound());
+
+		// Todo lo demás del panel le está prohibido
+		String saleId = mvc.perform(get("/api/admin/sales").header("Authorization", vale))
+				.andReturn().getResponse().getContentAsString().replaceAll("^\\[\\{\"id\":([0-9]+).*", "$1");
+		mvc.perform(delete("/api/admin/sales/" + saleId).header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/products").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/settings/costs").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/closings").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/users").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/deliveries").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/admin/accessories").header("Authorization", vale)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/auth/me").header("Authorization", vale)).andExpect(jsonPath("$.role", is("SELLER")));
+	}
+
+	@Test
 	void entregasDeInventarioSumanStockAlAceptar() throws Exception {
 		String admin = token();
 		mvc.perform(post("/api/admin/products").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)

@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +22,7 @@ import com.tresde_creation.tienda_tresde.back.service.SaleService;
 
 import jakarta.validation.Valid;
 
-/** Ventas del panel (requiere rol ADMIN, ver SecurityConfig: /api/admin/**). */
+/** Ventas del panel. Registrar y listar: ADMIN, STAFF y SELLER; anular: ADMIN y STAFF (ver SecurityConfig). */
 @RestController
 @RequestMapping("/api/admin/sales")
 public class AdminSalesController {
@@ -34,14 +36,14 @@ public class AdminSalesController {
 	/** ?from=...&to=... en ISO-8601 (opcionales). */
 	@GetMapping
 	public List<SaleResponse> list(@RequestParam(required = false) Instant from,
-			@RequestParam(required = false) Instant to) {
-		return saleService.list(from, to);
+			@RequestParam(required = false) Instant to, @AuthenticationPrincipal Jwt jwt) {
+		return saleService.list(from, to, jwt.getSubject());
 	}
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public SaleResponse create(@Valid @RequestBody SaleRequest request) {
-		return saleService.create(request);
+	public SaleResponse create(@Valid @RequestBody SaleRequest request, @AuthenticationPrincipal Jwt jwt) {
+		return saleService.create(request, jwt.getSubject());
 	}
 
 	@DeleteMapping("/{id}")

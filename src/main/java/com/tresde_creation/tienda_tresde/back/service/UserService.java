@@ -21,6 +21,8 @@ public class UserService {
 
 	public static final String ROLE_ADMIN = "ADMIN";
 	public static final String ROLE_STAFF = "STAFF";
+	/** Vendedor: solo registra ventas (a precio de catálogo) y ve las suyas, sin costos. */
+	public static final String ROLE_SELLER = "SELLER";
 
 	private static final String USERNAME_TAKEN = "Ya existe un usuario con ese nombre de usuario.";
 
